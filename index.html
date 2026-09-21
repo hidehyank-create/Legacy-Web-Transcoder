@@ -8,23 +8,32 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, sans-serif; background: #222; color: #fff; height: 100vh; overflow: hidden; }
 
-    /* ヘッダー＆ツールバー */
+    /* ヘッダー＆ツールバー（以前のデザインを完全再現） */
     #header {
       position: absolute; top: 0; left: 0; right: 0;
-      background: #333; padding: 8px 10px; z-index: 100;
-      border-bottom: 1px solid #444;
+      background: #333; padding: 10px; z-index: 100;
+      border-bottom: 1px solid #444; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
     }
-    .input-row { display: flex; gap: 8px; margin-bottom: 6px; }
-    #url-input { flex: 1; height: 36px; padding: 0 10px; font-size: 14px; border: 1px solid #555; border-radius: 4px; background: #111; color: #fff; }
-    .btn { height: 36px; padding: 0 14px; font-size: 13px; background: #007aff; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; }
-    .btn-sub { background: #444; border: 1px solid #666; }
+    .input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    #url-input {
+      flex: 1; height: 38px; padding: 0 12px; font-size: 15px;
+      border: 1px solid #555; border-radius: 6px; background: #111; color: #fff;
+    }
+    .btn {
+      height: 38px; padding: 0 16px; font-size: 14px; font-weight: bold;
+      background: #007aff; color: #fff; border: none; border-radius: 6px; cursor: pointer; white-space: nowrap;
+    }
+    .btn-sub { background: #444; border: 1px solid #666; font-weight: normal; }
     
-    .mode-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
-    .mode-btn { background: #222; color: #ccc; border: 1px solid #555; padding: 4px 10px; border-radius: 4px; font-size: 12px; }
-    .mode-btn.active { background: #007aff; color: #fff; border-color: #007aff; }
+    .mode-row { display: flex; gap: 8px; overflow-x: auto; }
+    .mode-btn {
+      background: #222; color: #ccc; border: 1px solid #555; padding: 6px 14px;
+      border-radius: 20px; font-size: 13px; cursor: pointer; white-space: nowrap;
+    }
+    .mode-btn.active { background: #007aff; color: #fff; border-color: #007aff; font-weight: bold; }
 
     /* メイン表示エリア */
-    #viewer-container { position: absolute; top: 82px; bottom: 0; left: 0; right: 0; overflow: auto; }
+    #viewer-container { position: absolute; top: 92px; bottom: 0; left: 0; right: 0; overflow: auto; }
     #wrapper { position: relative; min-height: 100%; width: 100%; }
 
     /* キャプチャ画像 */
@@ -33,11 +42,11 @@
     /* 前面：オーバーラップテキスト層 */
     #overlay-panel {
       position: absolute; top: 0; left: 0; width: 100%; min-height: 100%;
-      background: rgba(0, 0, 0, 0.75); color: #fff; padding: 15px; font-size: 15px; line-height: 1.6;
+      background: rgba(0, 0, 0, 0.75); color: #fff; padding: 20px; font-size: 16px; line-height: 1.6;
       word-wrap: break-word; z-index: 10; transition: opacity 0.2s;
     }
     #overlay-panel a { color: #64b5f6; text-decoration: underline; }
-    #overlay-panel p, #overlay-panel h1, #overlay-panel h2, #overlay-panel li { margin-bottom: 10px; }
+    #overlay-panel p, #overlay-panel h1, #overlay-panel h2, #overlay-panel li { margin-bottom: 12px; }
 
     /* フローティング操作コントローラー */
     #controls {
@@ -54,11 +63,10 @@
       <input type="text" id="url-input" placeholder="検索ワード または URL (例: ヤフー, google.com)">
       <button class="btn" onclick="loadPage()">読み込み</button>
     </div>
-    <!-- ツールバー（表示モード切替） -->
     <div class="mode-row">
-      <button class="mode-btn active" onclick="setMode('overlap')">🖼️＋📄 重ね合わせ</button>
-      <button class="mode-btn" onclick="setMode('text')">📄 テキスト抽出</button>
-      <button class="mode-btn" onclick="setMode('capture')">🖼️ キャプチャのみ</button>
+      <button class="mode-btn active" id="btn-overlap" onclick="setMode('overlap')">🖼️＋📄 重ね合わせ</button>
+      <button class="mode-btn" id="btn-text" onclick="setMode('text')">📄 テキスト抽出</button>
+      <button class="mode-btn" id="btn-capture" onclick="setMode('capture')">🖼️ キャプチャのみ</button>
     </div>
   </div>
 
@@ -71,9 +79,8 @@
     </div>
   </div>
 
-  <!-- 操作コントローラー -->
   <div id="controls">
-    <button class="btn btn-sub" onclick="toggleOverlay()">テキスト表示 ON/OFF</button>
+    <button class="btn btn-sub" style="height:28px; padding:0 10px; font-size:12px;" onclick="toggleOverlay()">テキスト表示 ON/OFF</button>
     <label>透明度:
       <input type="range" id="opacity-range" min="0" max="100" value="75" oninput="changeOpacity(this.value)">
     </label>
@@ -82,16 +89,14 @@
   <script>
     var currentMode = 'overlap';
 
-    // 1. 入力補正（キーワード ➔ URL 変換機能）
+    // 1. 入力補正（キーワード・簡易URL対応）
     function resolveUrl(input) {
       input = input.trim();
       if (!input) return '';
       
-      // キーワードショートカット対応
       if (input === 'ヤフー' || input === 'yahoo') return 'https://www.yahoo.co.jp/';
       if (input === 'グーグル' || input === 'google') return 'https://www.google.com/';
 
-      // ドメイン名・URL判定
       if (input.indexOf('http://') === 0 || input.indexOf('https://') === 0) {
         return input;
       }
@@ -99,7 +104,6 @@
         return 'https://' + input;
       }
       
-      // それ以外はGoogle検索
       return 'https://www.google.com/search?q=' + encodeURIComponent(input);
     }
 
@@ -114,9 +118,8 @@
       overlay.innerHTML = '<p>読み込み中...</p>';
       bgImg.style.display = 'none';
 
-      // A. キャプチャ画像読み込み
+      // A. 最下部まで完全取得する全ページキャプチャ API
       if (currentMode === 'overlap' || currentMode === 'capture') {
-        // 全体長尺キャプチャ用プロキシ (api.microlink.io を使用してページ全体を取得)
         var captureUrl = 'https://api.microlink.io/?url=' + encodeURIComponent(targetUrl) + '&screenshot=true&meta=false&embed=screenshot.url';
         bgImg.src = captureUrl;
         bgImg.onload = function() {
@@ -124,15 +127,24 @@
         };
       }
 
-      // B. テキスト・HTML抽出 (corsproxy.io 使用)
+      // B. 403 Forbidden 回避用プロキシ（allorigins）
       if (currentMode === 'overlap' || currentMode === 'text') {
-        var proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+        var proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl);
         
         var xhr = new XMLHttpRequest();
         xhr.open('GET', proxyUrl, true);
         xhr.onload = function() {
           if (xhr.status === 200) {
-            parseAndDisplay(xhr.responseText, targetUrl);
+            try {
+              var response = JSON.parse(xhr.responseText);
+              if (response.contents) {
+                parseAndDisplay(response.contents, targetUrl);
+              } else {
+                overlay.innerHTML = '<p>テキストデータの解析に失敗しました。</p>';
+              }
+            } catch(e) {
+              overlay.innerHTML = '<p>JSON解析エラーが発生しました。</p>';
+            }
           } else {
             overlay.innerHTML = '<p>テキストの取得に失敗しました (Status: ' + xhr.status + ')</p>';
           }
@@ -173,11 +185,10 @@
     // 表示モード切り替え
     function setMode(mode) {
       currentMode = mode;
-      var btns = document.querySelectorAll('.mode-btn');
-      for (var i = 0; i < btns.length; i++) {
-        btns[i].classList.remove('active');
-      }
-      event.target.classList.add('active');
+      
+      document.getElementById('btn-overlap').className = 'mode-btn' + (mode === 'overlap' ? ' active' : '');
+      document.getElementById('btn-text').className = 'mode-btn' + (mode === 'text' ? ' active' : '');
+      document.getElementById('btn-capture').className = 'mode-btn' + (mode === 'capture' ? ' active' : '');
 
       var bgImg = document.getElementById('bg-image');
       var overlay = document.getElementById('overlay-panel');
@@ -186,6 +197,7 @@
       if (mode === 'overlap') {
         bgImg.style.display = 'block';
         overlay.style.display = 'block';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, ' + (document.getElementById('opacity-range').value / 100) + ')';
         controls.style.display = 'flex';
       } else if (mode === 'text') {
         bgImg.style.display = 'none';
