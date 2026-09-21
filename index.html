@@ -110,9 +110,9 @@
       overlay.innerHTML = '<p>読み込み中...</p>';
       bgImg.style.display = 'none';
 
-      // 1. 全ページ長尺キャプチャ画像取得
+      // 1. キャプチャ画像読み込み
       if (currentMode === 'overlap' || currentMode === 'capture') {
-        var captureUrl = 'https://api.microlink.io/?url=' + encodeURIComponent(targetUrl) + '&screenshot=true&meta=false&embed=screenshot.url';
+        var captureUrl = 'https://s0.wp.com/mshots/v1/' + encodeURIComponent(targetUrl) + '?w=1024';
         bgImg.src = captureUrl;
         bgImg.onload = function() {
           bgImg.style.display = 'block';
