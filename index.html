@@ -8,7 +8,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, sans-serif; background: #222; color: #fff; height: 100vh; overflow: hidden; }
 
-    /* ヘッダー＆ツールバー（以前のデザインを完全再現） */
+    /* ヘッダー＆ツールバー */
     #header {
       position: absolute; top: 0; left: 0; right: 0;
       background: #333; padding: 10px; z-index: 100;
@@ -89,21 +89,13 @@
   <script>
     var currentMode = 'overlap';
 
-    // 1. 入力補正（キーワード・簡易URL対応）
     function resolveUrl(input) {
       input = input.trim();
       if (!input) return '';
-      
       if (input === 'ヤフー' || input === 'yahoo') return 'https://www.yahoo.co.jp/';
       if (input === 'グーグル' || input === 'google') return 'https://www.google.com/';
-
-      if (input.indexOf('http://') === 0 || input.indexOf('https://') === 0) {
-        return input;
-      }
-      if (input.indexOf('.') !== -1 && input.indexOf(' ') === -1) {
-        return 'https://' + input;
-      }
-      
+      if (input.indexOf('http://') === 0 || input.indexOf('https://') === 0) return input;
+      if (input.indexOf('.') !== -1 && input.indexOf(' ') === -1) return 'https://' + input;
       return 'https://www.google.com/search?q=' + encodeURIComponent(input);
     }
 
@@ -118,7 +110,7 @@
       overlay.innerHTML = '<p>読み込み中...</p>';
       bgImg.style.display = 'none';
 
-      // A. 最下部まで完全取得する全ページキャプチャ API
+      // 1. 全ページ長尺キャプチャ画像取得
       if (currentMode === 'overlap' || currentMode === 'capture') {
         var captureUrl = 'https://api.microlink.io/?url=' + encodeURIComponent(targetUrl) + '&screenshot=true&meta=false&embed=screenshot.url';
         bgImg.src = captureUrl;
@@ -127,24 +119,15 @@
         };
       }
 
-      // B. 403 Forbidden 回避用プロキシ（allorigins）
+      // 2. 高安定プロキシ (Codetabs CORS Proxy) によるHTML抽出
       if (currentMode === 'overlap' || currentMode === 'text') {
-        var proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl);
+        var proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(targetUrl);
         
         var xhr = new XMLHttpRequest();
         xhr.open('GET', proxyUrl, true);
         xhr.onload = function() {
           if (xhr.status === 200) {
-            try {
-              var response = JSON.parse(xhr.responseText);
-              if (response.contents) {
-                parseAndDisplay(response.contents, targetUrl);
-              } else {
-                overlay.innerHTML = '<p>テキストデータの解析に失敗しました。</p>';
-              }
-            } catch(e) {
-              overlay.innerHTML = '<p>JSON解析エラーが発生しました。</p>';
-            }
+            parseAndDisplay(xhr.responseText, targetUrl);
           } else {
             overlay.innerHTML = '<p>テキストの取得に失敗しました (Status: ' + xhr.status + ')</p>';
           }
@@ -156,19 +139,16 @@
       }
     }
 
-    // HTML解析 & テキスト・リンク整形
     function parseAndDisplay(htmlStr, baseUrl) {
       var overlay = document.getElementById('overlay-panel');
       var parser = new DOMParser();
       var doc = parser.parseFromString(htmlStr, 'text/html');
 
-      // 不要要素を排除
       var removes = doc.querySelectorAll('script, style, noscript, iframe, header, footer, nav');
       for (var i = 0; i < removes.length; i++) {
         removes[i].parentNode.removeChild(removes[i]);
       }
 
-      // 相対リンクを絶対リンクに置換
       var links = doc.getElementsByTagName('a');
       for (var j = 0; j < links.length; j++) {
         var href = links[j].getAttribute('href');
@@ -182,7 +162,6 @@
       overlay.innerHTML = doc.body ? doc.body.innerHTML : 'テキストが見つかりません';
     }
 
-    // 表示モード切り替え
     function setMode(mode) {
       currentMode = mode;
       
