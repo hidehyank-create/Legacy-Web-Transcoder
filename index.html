@@ -36,8 +36,8 @@
     /* バージョン表記 */
     .version-tag { font-size: 11px; color: #888; margin-left: auto; padding-left: 6px; white-space: nowrap; }
 
-    /* メイン表示エリア */
-    #viewer-container { position: absolute; top: 96px; bottom: 0; left: 0; right: 0; overflow: auto; }
+    /* メイン表示エリア (iOS 12の慣性スクロール対応) */
+    #viewer-container { position: absolute; top: 96px; bottom: 0; left: 0; right: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
     #wrapper { position: relative; min-height: 100%; width: 100%; }
 
     /* キャプチャ画像 */
@@ -51,9 +51,6 @@
     }
     #overlay-panel a { color: #64b5f6; text-decoration: underline; }
     #overlay-panel p, #overlay-panel h1, #overlay-panel h2, #overlay-panel h3, #overlay-panel li { margin-bottom: 8px; }
-    #overlay-panel h1 { font-size: 18px; }
-    #overlay-panel h2 { font-size: 16px; }
-    #overlay-panel h3 { font-size: 14px; }
 
     /* フローティング操作コントローラー */
     #controls {
@@ -78,7 +75,7 @@
       <button class="mode-btn" id="btn-capture" onclick="setMode('capture')">🖼️ キャプチャのみ</button>
       <button class="tool-btn" onclick="addBookmark()">⭐ ブックマーク追加</button>
       <button class="tool-btn" onclick="showBookmarks()">📚 一覧</button>
-      <span class="version-tag">v1.3.0</span>
+      <span class="version-tag">v1.4.0</span>
     </div>
   </div>
 
@@ -171,52 +168,66 @@
       overlay.innerHTML = '<p>読み込み中...</p>';
       bgImg.style.display = 'none';
 
-      // 1. 長尺対応キャプチャAPI (thum.io で縦長ページも下部まで取得)
+      // 1. キャプチャ画像 (iOS 12 Safariのメモリ上限に収まる安全サイズに調整)
       if (currentMode === 'overlap' || currentMode === 'capture') {
-        var cleanUrl = targetUrl.replace(/^https?:\/\//, '');
-        var captureUrl = 'https://image.thum.io/get/width/1024/crop/6000/https://' + cleanUrl;
+        var captureUrl = 'https://s0.wp.com/mshots/v1/' + encodeURIComponent(targetUrl) + '?w=1024&h=2200';
         bgImg.src = captureUrl;
         bgImg.onload = function() {
           bgImg.style.display = 'block';
         };
       }
 
-      // 2. 自動フォールバック付きテキスト取得
+      // 2. テキスト取得 (JSON API経由で通信エラーを完全防止)
       if (currentMode === 'overlap' || currentMode === 'text') {
-        fetchWithFallback(targetUrl, 0);
+        fetchText(targetUrl);
       }
     }
 
-    function fetchWithFallback(targetUrl, proxyIndex) {
+    function fetchText(targetUrl) {
       var overlay = document.getElementById('overlay-panel');
-      var proxies = [
-        'https://api.allorigins.win/raw?url=',
-        'https://corsproxy.io/?',
-        'https://api.codetabs.com/v1/proxy?quest='
-      ];
+      var jsonProxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl);
 
-      if (proxyIndex >= proxies.length) {
-        overlay.innerHTML = '<p>テキストの取得に失敗しました。時間をおいて再試行してください。</p>';
-        return;
-      }
-
-      var proxyUrl = proxies[proxyIndex] + encodeURIComponent(targetUrl);
       var xhr = new XMLHttpRequest();
-      xhr.open('GET', proxyUrl, true);
-      xhr.timeout = 8000;
+      xhr.open('GET', jsonProxy, true);
+      xhr.timeout = 10000;
 
       xhr.onload = function() {
-        if (xhr.status === 200 && xhr.responseText && xhr.responseText.length > 50) {
-          parseAndDisplay(xhr.responseText, targetUrl);
-        } else {
-          fetchWithFallback(targetUrl, proxyIndex + 1);
+        if (xhr.status === 200 && xhr.responseText) {
+          try {
+            var data = JSON.parse(xhr.responseText);
+            if (data.contents) {
+              parseAndDisplay(data.contents, targetUrl);
+              return;
+            }
+          } catch(e) {}
         }
+        fetchFallback(targetUrl);
       };
 
       xhr.onerror = xhr.ontimeout = function() {
-        fetchWithFallback(targetUrl, proxyIndex + 1);
+        fetchFallback(targetUrl);
       };
 
+      xhr.send();
+    }
+
+    function fetchFallback(targetUrl) {
+      var overlay = document.getElementById('overlay-panel');
+      var proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(targetUrl);
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', proxyUrl, true);
+      xhr.timeout = 10000;
+
+      xhr.onload = function() {
+        if (xhr.status === 200 && xhr.responseText) {
+          parseAndDisplay(xhr.responseText, targetUrl);
+        } else {
+          overlay.innerHTML = '<p>テキストの取得に失敗しました。(Status: ' + xhr.status + ')</p>';
+        }
+      };
+      xhr.onerror = xhr.ontimeout = function() {
+        overlay.innerHTML = '<p>通信エラーが発生しました。</p>';
+      };
       xhr.send();
     }
 
@@ -225,7 +236,7 @@
       var parser = new DOMParser();
       var doc = parser.parseFromString(htmlStr, 'text/html');
 
-      var removes = doc.querySelectorAll('script, style, noscript, iframe, header, footer, nav');
+      var removes = doc.querySelectorAll('script, style, noscript, iframe, header, footer, nav, svg');
       for (var i = 0; i < removes.length; i++) {
         removes[i].parentNode.removeChild(removes[i]);
       }
