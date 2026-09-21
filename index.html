@@ -46,18 +46,22 @@
     /* 前面：オーバーラップテキスト層 */
     #overlay-panel {
       position: absolute; top: 0; left: 0; width: 100%; min-height: 100%;
-      background: rgba(0, 0, 0, 0.75); color: #fff; padding: 20px; font-size: 16px; line-height: 1.6;
+      background: rgba(0, 0, 0, 0.75); color: #fff; padding: 15px; font-size: 13px; line-height: 1.5;
       word-wrap: break-word; z-index: 10; transition: opacity 0.2s;
     }
     #overlay-panel a { color: #64b5f6; text-decoration: underline; }
-    #overlay-panel p, #overlay-panel h1, #overlay-panel h2, #overlay-panel li { margin-bottom: 12px; }
+    #overlay-panel p, #overlay-panel h1, #overlay-panel h2, #overlay-panel h3, #overlay-panel li { margin-bottom: 8px; }
+    #overlay-panel h1 { font-size: 18px; }
+    #overlay-panel h2 { font-size: 16px; }
+    #overlay-panel h3 { font-size: 14px; }
 
     /* フローティング操作コントローラー */
     #controls {
       position: fixed; bottom: 15px; right: 15px; z-index: 200;
       background: rgba(0, 0, 0, 0.85); padding: 8px 12px; border-radius: 8px; border: 1px solid #555;
-      display: flex; align-items: center; gap: 10px; font-size: 12px;
+      display: flex; align-items: center; gap: 12px; font-size: 12px; flex-wrap: wrap;
     }
+    #controls label { display: flex; align-items: center; gap: 4px; }
   </style>
 </head>
 <body>
@@ -74,7 +78,7 @@
       <button class="mode-btn" id="btn-capture" onclick="setMode('capture')">🖼️ キャプチャのみ</button>
       <button class="tool-btn" onclick="addBookmark()">⭐ ブックマーク追加</button>
       <button class="tool-btn" onclick="showBookmarks()">📚 一覧</button>
-      <span class="version-tag">v1.2.0</span>
+      <span class="version-tag">v1.3.0</span>
     </div>
   </div>
 
@@ -88,9 +92,13 @@
   </div>
 
   <div id="controls">
-    <button class="btn btn-sub" style="height:28px; padding:0 10px; font-size:12px;" onclick="toggleOverlay()">テキスト表示 ON/OFF</button>
+    <button class="btn btn-sub" style="height:28px; padding:0 8px; font-size:12px;" onclick="toggleOverlay()">テキスト ON/OFF</button>
     <label>透明度:
       <input type="range" id="opacity-range" min="0" max="100" value="75" oninput="changeOpacity(this.value)">
+    </label>
+    <label>文字サイズ:
+      <input type="range" id="fontsize-range" min="10" max="24" value="13" oninput="changeFontSize(this.value)">
+      <span id="fontsize-val">13px</span>
     </label>
   </div>
 
@@ -98,7 +106,6 @@
     var currentMode = 'overlap';
     var defaultHome = 'https://www.yahoo.co.jp/';
 
-    // Return (Enter) キー入力対応
     function handleKeyPress(e) {
       if (e.keyCode === 13 || e.key === 'Enter') {
         loadPage();
@@ -164,22 +171,22 @@
       overlay.innerHTML = '<p>読み込み中...</p>';
       bgImg.style.display = 'none';
 
-      // 1. キャプチャ画像読み込み (縦長対応: h=3000px)
+      // 1. 長尺対応キャプチャAPI (thum.io で縦長ページも下部まで取得)
       if (currentMode === 'overlap' || currentMode === 'capture') {
-        var captureUrl = 'https://s0.wp.com/mshots/v1/' + encodeURIComponent(targetUrl) + '?w=1024&h=3000';
+        var cleanUrl = targetUrl.replace(/^https?:\/\//, '');
+        var captureUrl = 'https://image.thum.io/get/width/1024/crop/6000/https://' + cleanUrl;
         bgImg.src = captureUrl;
         bgImg.onload = function() {
           bgImg.style.display = 'block';
         };
       }
 
-      // 2. 自動フォールバック機能付きテキスト取得
+      // 2. 自動フォールバック付きテキスト取得
       if (currentMode === 'overlap' || currentMode === 'text') {
         fetchWithFallback(targetUrl, 0);
       }
     }
 
-    // 複数のプロキシを順番に試して通信エラーを確実に防ぐ
     function fetchWithFallback(targetUrl, proxyIndex) {
       var overlay = document.getElementById('overlay-panel');
       var proxies = [
@@ -196,13 +203,12 @@
       var proxyUrl = proxies[proxyIndex] + encodeURIComponent(targetUrl);
       var xhr = new XMLHttpRequest();
       xhr.open('GET', proxyUrl, true);
-      xhr.timeout = 8000; // 8秒でタイムアウトしたら次のプロキシへ
+      xhr.timeout = 8000;
 
       xhr.onload = function() {
         if (xhr.status === 200 && xhr.responseText && xhr.responseText.length > 50) {
           parseAndDisplay(xhr.responseText, targetUrl);
         } else {
-          // 失敗したら次のプロキシへ切り替え
           fetchWithFallback(targetUrl, proxyIndex + 1);
         }
       };
@@ -275,6 +281,12 @@
       if (currentMode === 'overlap') {
         overlay.style.backgroundColor = 'rgba(0, 0, 0, ' + (val / 100) + ')';
       }
+    }
+
+    function changeFontSize(val) {
+      var overlay = document.getElementById('overlay-panel');
+      overlay.style.fontSize = val + 'px';
+      document.getElementById('fontsize-val').textContent = val + 'px';
     }
   </script>
 </body>
