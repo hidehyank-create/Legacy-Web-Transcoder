@@ -110,18 +110,18 @@
       overlay.innerHTML = '<p>読み込み中...</p>';
       bgImg.style.display = 'none';
 
-      // 1. 全ページ最下部まで長尺キャプチャ画像読み込み
+      // 1. 爆速キャプチャ画像読み込み (WordPress API)
       if (currentMode === 'overlap' || currentMode === 'capture') {
-        var captureUrl = 'https://api.microlink.io/?url=' + encodeURIComponent(targetUrl) + '&screenshot=true&meta=false&embed=screenshot.url';
+        var captureUrl = 'https://s0.wp.com/mshots/v1/' + encodeURIComponent(targetUrl) + '?w=1024';
         bgImg.src = captureUrl;
         bgImg.onload = function() {
           bgImg.style.display = 'block';
         };
       }
 
-      // 2. ブラウザ制限（CORS）を回避してHTMLテキストを確実に取得
+      // 2. 高安定プロキシ (Codetabs) でテキスト抽出
       if (currentMode === 'overlap' || currentMode === 'text') {
-        var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(targetUrl);
+        var proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(targetUrl);
         
         var xhr = new XMLHttpRequest();
         xhr.open('GET', proxyUrl, true);
@@ -136,7 +136,6 @@
           overlay.innerHTML = '<p>通信エラーが発生しました。</p>';
         };
         xhr.send();
-      }
       }
     }
 
