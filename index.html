@@ -3,78 +3,110 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Legacy Web Transcoder - Overlap Mode</title>
+  <title>Legacy Web Transcoder</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, sans-serif; background: #222; color: #fff; height: 100vh; overflow: hidden; }
 
-    /* ヘッダー入力エリア */
+    /* ヘッダー＆ツールバー */
     #header {
-      position: absolute; top: 0; left: 0; right: 0; height: 50px;
-      background: #333; display: flex; align-items: center; padding: 0 10px; z-index: 100;
+      position: absolute; top: 0; left: 0; right: 0;
+      background: #333; padding: 8px 10px; z-index: 100;
+      border-bottom: 1px solid #444;
     }
-    #url-input { flex: 1; height: 34px; padding: 0 10px; font-size: 14px; border: 1px solid #555; border-radius: 4px; background: #111; color: #fff; }
-    #load-btn { height: 34px; margin-left: 8px; padding: 0 15px; font-size: 14px; background: #007aff; color: #fff; border: none; border-radius: 4px; }
+    .input-row { display: flex; gap: 8px; margin-bottom: 6px; }
+    #url-input { flex: 1; height: 36px; padding: 0 10px; font-size: 14px; border: 1px solid #555; border-radius: 4px; background: #111; color: #fff; }
+    .btn { height: 36px; padding: 0 14px; font-size: 13px; background: #007aff; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+    .btn-sub { background: #444; border: 1px solid #666; }
+    
+    .mode-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+    .mode-btn { background: #222; color: #ccc; border: 1px solid #555; padding: 4px 10px; border-radius: 4px; font-size: 12px; }
+    .mode-btn.active { background: #007aff; color: #fff; border-color: #007aff; }
 
-    /* メイン表示エリア（2層構造） */
-    #viewer-container { position: absolute; top: 50px; bottom: 0; left: 0; right: 0; overflow: auto; }
+    /* メイン表示エリア */
+    #viewer-container { position: absolute; top: 82px; bottom: 0; left: 0; right: 0; overflow: auto; }
     #wrapper { position: relative; min-height: 100%; width: 100%; }
 
-    /* 背景：キャプチャ画像 */
+    /* キャプチャ画像 */
     #bg-image { display: block; width: 100%; height: auto; }
 
     /* 前面：オーバーラップテキスト層 */
     #overlay-panel {
       position: absolute; top: 0; left: 0; width: 100%; min-height: 100%;
-      background: rgba(0, 0, 0, 0.75); color: #fff; padding: 20px; font-size: 16px; line-height: 1.6;
+      background: rgba(0, 0, 0, 0.75); color: #fff; padding: 15px; font-size: 15px; line-height: 1.6;
       word-wrap: break-word; z-index: 10; transition: opacity 0.2s;
     }
     #overlay-panel a { color: #64b5f6; text-decoration: underline; }
-    #overlay-panel p, #overlay-panel h1, #overlay-panel h2, #overlay-panel li { margin-bottom: 12px; }
+    #overlay-panel p, #overlay-panel h1, #overlay-panel h2, #overlay-panel li { margin-bottom: 10px; }
 
     /* フローティング操作コントローラー */
     #controls {
       position: fixed; bottom: 15px; right: 15px; z-index: 200;
-      background: rgba(0, 0, 0, 0.85); padding: 10px 15px; border-radius: 8px; border: 1px solid #555;
+      background: rgba(0, 0, 0, 0.85); padding: 8px 12px; border-radius: 8px; border: 1px solid #555;
       display: flex; align-items: center; gap: 10px; font-size: 12px;
     }
-    .ctrl-btn { background: #444; color: #fff; border: 1px solid #666; padding: 5px 10px; border-radius: 4px; font-size: 12px; }
   </style>
 </head>
 <body>
 
   <div id="header">
-    <input type="text" id="url-input" placeholder="URLを入力 (例: https://example.com)">
-    <button id="load-btn" onclick="loadPage()">読み込み</button>
+    <div class="input-row">
+      <input type="text" id="url-input" placeholder="検索ワード または URL (例: ヤフー, google.com)">
+      <button class="btn" onclick="loadPage()">読み込み</button>
+    </div>
+    <!-- ツールバー（表示モード切替） -->
+    <div class="mode-row">
+      <button class="mode-btn active" onclick="setMode('overlap')">🖼️＋📄 重ね合わせ</button>
+      <button class="mode-btn" onclick="setMode('text')">📄 テキスト抽出</button>
+      <button class="mode-btn" onclick="setMode('capture')">🖼️ キャプチャのみ</button>
+    </div>
   </div>
 
   <div id="viewer-container">
     <div id="wrapper">
-      <!-- 背景：画像 -->
       <img id="bg-image" src="" style="display:none;">
-      
-      <!-- 前面：テキスト overlay -->
       <div id="overlay-panel">
-        <p>URLを入力して「読み込み」を押してください。</p>
+        <p>検索ワードまたはURLを入力して「読み込み」を押してください。</p>
       </div>
     </div>
   </div>
 
-  <!-- 操作用コントローラー -->
+  <!-- 操作コントローラー -->
   <div id="controls">
-    <button class="ctrl-btn" onclick="toggleOverlay()">テキストON/OFF</button>
+    <button class="btn btn-sub" onclick="toggleOverlay()">テキスト表示 ON/OFF</button>
     <label>透明度:
       <input type="range" id="opacity-range" min="0" max="100" value="75" oninput="changeOpacity(this.value)">
     </label>
   </div>
 
   <script>
-    function loadPage() {
-      var url = document.getElementById('url-input').value.trim();
-      if (!url) return;
-      if (url.indexOf('http://') !== 0 && url.indexOf('https://') !== 0) {
-        url = 'https://' + url;
+    var currentMode = 'overlap';
+
+    // 1. 入力補正（キーワード ➔ URL 変換機能）
+    function resolveUrl(input) {
+      input = input.trim();
+      if (!input) return '';
+      
+      // キーワードショートカット対応
+      if (input === 'ヤフー' || input === 'yahoo') return 'https://www.yahoo.co.jp/';
+      if (input === 'グーグル' || input === 'google') return 'https://www.google.com/';
+
+      // ドメイン名・URL判定
+      if (input.indexOf('http://') === 0 || input.indexOf('https://') === 0) {
+        return input;
       }
+      if (input.indexOf('.') !== -1 && input.indexOf(' ') === -1) {
+        return 'https://' + input;
+      }
+      
+      // それ以外はGoogle検索
+      return 'https://www.google.com/search?q=' + encodeURIComponent(input);
+    }
+
+    function loadPage() {
+      var rawInput = document.getElementById('url-input').value;
+      var targetUrl = resolveUrl(rawInput);
+      if (!targetUrl) return;
 
       var bgImg = document.getElementById('bg-image');
       var overlay = document.getElementById('overlay-panel');
@@ -82,52 +114,49 @@
       overlay.innerHTML = '<p>読み込み中...</p>';
       bgImg.style.display = 'none';
 
-      // 1. WordPress mshots API を使用してWebページ全体をキャプチャ取得（幅1024px想定）
-      var captureUrl = 'https://s0.wp.com/mshots/v1/' + encodeURIComponent(url) + '?w=1024';
-      bgImg.src = captureUrl;
-      bgImg.onload = function() {
-        bgImg.style.display = 'block';
-      };
+      // A. キャプチャ画像読み込み
+      if (currentMode === 'overlap' || currentMode === 'capture') {
+        // 全体長尺キャプチャ用プロキシ (api.microlink.io を使用してページ全体を取得)
+        var captureUrl = 'https://api.microlink.io/?url=' + encodeURIComponent(targetUrl) + '&screenshot=true&meta=false&embed=screenshot.url';
+        bgImg.src = captureUrl;
+        bgImg.onload = function() {
+          bgImg.style.display = 'block';
+        };
+      }
 
-      // 2. CORSプロキシ経由でHTMLテキストを抽出
-      var proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
-      
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', proxyUrl, true);
-      xhr.onload = function() {
-        if (xhr.status === 200) {
-          try {
-            var response = JSON.parse(xhr.responseText);
-            var htmlString = response.contents;
-            parseAndDisplay(htmlString, url);
-          } catch(e) {
-            overlay.innerHTML = '<p>テキスト抽出に失敗しました。</p>';
+      // B. テキスト・HTML抽出 (corsproxy.io 使用)
+      if (currentMode === 'overlap' || currentMode === 'text') {
+        var proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+        
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', proxyUrl, true);
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            parseAndDisplay(xhr.responseText, targetUrl);
+          } else {
+            overlay.innerHTML = '<p>テキストの取得に失敗しました (Status: ' + xhr.status + ')</p>';
           }
-        } else {
-          overlay.innerHTML = '<p>ページの取得に失敗しました。</p>';
-        }
-      };
-      xhr.onerror = function() {
-        overlay.innerHTML = '<p>通信エラーが発生しました。</p>';
-      };
-      xhr.send();
+        };
+        xhr.onerror = function() {
+          overlay.innerHTML = '<p>通信エラーが発生しました。</p>';
+        };
+        xhr.send();
+      }
     }
 
-    // HTMLから主要テキストとリンクを抽出して整形
+    // HTML解析 & テキスト・リンク整形
     function parseAndDisplay(htmlStr, baseUrl) {
       var overlay = document.getElementById('overlay-panel');
-      
-      // DOMParserを使ってパース（iOS 12互換）
       var parser = new DOMParser();
       var doc = parser.parseFromString(htmlStr, 'text/html');
 
-      // 不要要素を削除
+      // 不要要素を排除
       var removes = doc.querySelectorAll('script, style, noscript, iframe, header, footer, nav');
       for (var i = 0; i < removes.length; i++) {
         removes[i].parentNode.removeChild(removes[i]);
       }
 
-      // 相対パスを絶対パス（全URL）に変換
+      // 相対リンクを絶対リンクに置換
       var links = doc.getElementsByTagName('a');
       for (var j = 0; j < links.length; j++) {
         var href = links[j].getAttribute('href');
@@ -136,29 +165,50 @@
             links[j].href = new URL(href, baseUrl).href;
           } catch(e) {}
         }
-        links[j].setAttribute('target', '_self');
       }
 
-      // 抽出テキストを設置
-      var bodyContent = doc.body ? doc.body.innerHTML : 'テキストが見つかりません';
-      overlay.innerHTML = bodyContent;
+      overlay.innerHTML = doc.body ? doc.body.innerHTML : 'テキストが見つかりません';
     }
 
-    // テキストパネルの表示/非表示切替
+    // 表示モード切り替え
+    function setMode(mode) {
+      currentMode = mode;
+      var btns = document.querySelectorAll('.mode-btn');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.remove('active');
+      }
+      event.target.classList.add('active');
+
+      var bgImg = document.getElementById('bg-image');
+      var overlay = document.getElementById('overlay-panel');
+      var controls = document.getElementById('controls');
+
+      if (mode === 'overlap') {
+        bgImg.style.display = 'block';
+        overlay.style.display = 'block';
+        controls.style.display = 'flex';
+      } else if (mode === 'text') {
+        bgImg.style.display = 'none';
+        overlay.style.display = 'block';
+        overlay.style.backgroundColor = '#222';
+        controls.style.display = 'none';
+      } else if (mode === 'capture') {
+        bgImg.style.display = 'block';
+        overlay.style.display = 'none';
+        controls.style.display = 'none';
+      }
+    }
+
     function toggleOverlay() {
       var overlay = document.getElementById('overlay-panel');
-      if (overlay.style.display === 'none') {
-        overlay.style.display = 'block';
-      } else {
-        overlay.style.display = 'none';
-      }
+      overlay.style.display = (overlay.style.display === 'none') ? 'block' : 'none';
     }
 
-    // 透明度変更 (0〜100)
     function changeOpacity(val) {
       var overlay = document.getElementById('overlay-panel');
-      var alpha = val / 100;
-      overlay.style.backgroundColor = 'rgba(0, 0, 0, ' + alpha + ')';
+      if (currentMode === 'overlap') {
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, ' + (val / 100) + ')';
+      }
     }
   </script>
 </body>
