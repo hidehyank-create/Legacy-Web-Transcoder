@@ -14,26 +14,30 @@
       background: #333; padding: 10px; z-index: 100;
       border-bottom: 1px solid #444; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
     }
-    .input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .input-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
     #url-input {
       flex: 1; height: 38px; padding: 0 12px; font-size: 15px;
       border: 1px solid #555; border-radius: 6px; background: #111; color: #fff;
     }
     .btn {
-      height: 38px; padding: 0 16px; font-size: 14px; font-weight: bold;
+      height: 38px; padding: 0 14px; font-size: 14px; font-weight: bold;
       background: #007aff; color: #fff; border: none; border-radius: 6px; cursor: pointer; white-space: nowrap;
     }
     .btn-sub { background: #444; border: 1px solid #666; font-weight: normal; }
     
-    .mode-row { display: flex; gap: 8px; overflow-x: auto; }
+    .toolbar-row { display: flex; gap: 6px; overflow-x: auto; align-items: center; }
     .mode-btn {
-      background: #222; color: #ccc; border: 1px solid #555; padding: 6px 14px;
-      border-radius: 20px; font-size: 13px; cursor: pointer; white-space: nowrap;
+      background: #222; color: #ccc; border: 1px solid #555; padding: 6px 12px;
+      border-radius: 16px; font-size: 13px; cursor: pointer; white-space: nowrap;
     }
     .mode-btn.active { background: #007aff; color: #fff; border-color: #007aff; font-weight: bold; }
+    .tool-btn { background: #3a3a3c; color: #fff; border: 1px solid #555; padding: 6px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+
+    /* バージョン表記 */
+    .version-tag { font-size: 11px; color: #888; margin-left: auto; padding-left: 6px; white-space: nowrap; }
 
     /* メイン表示エリア */
-    #viewer-container { position: absolute; top: 92px; bottom: 0; left: 0; right: 0; overflow: auto; }
+    #viewer-container { position: absolute; top: 96px; bottom: 0; left: 0; right: 0; overflow: auto; }
     #wrapper { position: relative; min-height: 100%; width: 100%; }
 
     /* キャプチャ画像 */
@@ -60,13 +64,17 @@
 
   <div id="header">
     <div class="input-row">
-      <input type="text" id="url-input" placeholder="検索ワード または URL (例: ヤフー, google.com)">
+      <button class="tool-btn" onclick="goHome()">🏠 ホーム</button>
+      <input type="text" id="url-input" placeholder="検索ワード または URL (Returnで読み込み)" onkeypress="handleKeyPress(event)">
       <button class="btn" onclick="loadPage()">読み込み</button>
     </div>
-    <div class="mode-row">
+    <div class="toolbar-row">
       <button class="mode-btn active" id="btn-overlap" onclick="setMode('overlap')">🖼️＋📄 重ね合わせ</button>
       <button class="mode-btn" id="btn-text" onclick="setMode('text')">📄 テキスト抽出</button>
       <button class="mode-btn" id="btn-capture" onclick="setMode('capture')">🖼️ キャプチャのみ</button>
+      <button class="tool-btn" onclick="addBookmark()">⭐ ブックマーク追加</button>
+      <button class="tool-btn" onclick="showBookmarks()">📚 一覧</button>
+      <span class="version-tag">v1.2.0</span>
     </div>
   </div>
 
@@ -74,7 +82,7 @@
     <div id="wrapper">
       <img id="bg-image" src="" style="display:none;">
       <div id="overlay-panel">
-        <p>検索ワードまたはURLを入力して「読み込み」を押してください。</p>
+        <p>検索ワードまたはURLを入力して Return (Enter) キーまたは「読み込み」を押してください。</p>
       </div>
     </div>
   </div>
@@ -88,6 +96,52 @@
 
   <script>
     var currentMode = 'overlap';
+    var defaultHome = 'https://www.yahoo.co.jp/';
+
+    // Return (Enter) キー入力対応
+    function handleKeyPress(e) {
+      if (e.keyCode === 13 || e.key === 'Enter') {
+        loadPage();
+      }
+    }
+
+    function goHome() {
+      document.getElementById('url-input').value = defaultHome;
+      loadPage();
+    }
+
+    function addBookmark() {
+      var url = document.getElementById('url-input').value.trim();
+      if (!url) return;
+      var bms = JSON.parse(localStorage.getItem('legacy_bms') || '[]');
+      if (bms.indexOf(url) === -1) {
+        bms.push(url);
+        localStorage.setItem('legacy_bms', JSON.stringify(bms));
+        alert('ブックマークに保存しました！');
+      } else {
+        alert('すでに登録されています。');
+      }
+    }
+
+    function showBookmarks() {
+      var bms = JSON.parse(localStorage.getItem('legacy_bms') || '[]');
+      if (bms.length === 0) {
+        alert('ブックマークはまだありません。');
+        return;
+      }
+      var msg = "【ブックマーク一覧】\n番号を入力して移動:\n\n";
+      for (var i = 0; i < bms.length; i++) {
+        msg += (i + 1) + ". " + bms[i] + "\n";
+      }
+      var choice = prompt(msg);
+      if (choice) {
+        var idx = parseInt(choice, 10) - 1;
+        if (bms[idx]) {
+          document.getElementById('url-input').value = bms[idx];
+          loadPage();
+        }
+      }
+    }
 
     function resolveUrl(input) {
       input = input.trim();
@@ -110,33 +164,54 @@
       overlay.innerHTML = '<p>読み込み中...</p>';
       bgImg.style.display = 'none';
 
-      // 1. 爆速キャプチャ画像読み込み (WordPress API)
+      // 1. キャプチャ画像読み込み (縦長対応: h=3000px)
       if (currentMode === 'overlap' || currentMode === 'capture') {
-        var captureUrl = 'https://s0.wp.com/mshots/v1/' + encodeURIComponent(targetUrl) + '?w=1024';
+        var captureUrl = 'https://s0.wp.com/mshots/v1/' + encodeURIComponent(targetUrl) + '?w=1024&h=3000';
         bgImg.src = captureUrl;
         bgImg.onload = function() {
           bgImg.style.display = 'block';
         };
       }
 
-      // 2. 高安定プロキシ (Codetabs) でテキスト抽出
+      // 2. 自動フォールバック機能付きテキスト取得
       if (currentMode === 'overlap' || currentMode === 'text') {
-        var proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(targetUrl);
-        
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', proxyUrl, true);
-        xhr.onload = function() {
-          if (xhr.status === 200 && xhr.responseText) {
-            parseAndDisplay(xhr.responseText, targetUrl);
-          } else {
-            overlay.innerHTML = '<p>テキストの取得に失敗しました (Status: ' + xhr.status + ')</p>';
-          }
-        };
-        xhr.onerror = function() {
-          overlay.innerHTML = '<p>通信エラーが発生しました。</p>';
-        };
-        xhr.send();
+        fetchWithFallback(targetUrl, 0);
       }
+    }
+
+    // 複数のプロキシを順番に試して通信エラーを確実に防ぐ
+    function fetchWithFallback(targetUrl, proxyIndex) {
+      var overlay = document.getElementById('overlay-panel');
+      var proxies = [
+        'https://api.allorigins.win/raw?url=',
+        'https://corsproxy.io/?',
+        'https://api.codetabs.com/v1/proxy?quest='
+      ];
+
+      if (proxyIndex >= proxies.length) {
+        overlay.innerHTML = '<p>テキストの取得に失敗しました。時間をおいて再試行してください。</p>';
+        return;
+      }
+
+      var proxyUrl = proxies[proxyIndex] + encodeURIComponent(targetUrl);
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', proxyUrl, true);
+      xhr.timeout = 8000; // 8秒でタイムアウトしたら次のプロキシへ
+
+      xhr.onload = function() {
+        if (xhr.status === 200 && xhr.responseText && xhr.responseText.length > 50) {
+          parseAndDisplay(xhr.responseText, targetUrl);
+        } else {
+          // 失敗したら次のプロキシへ切り替え
+          fetchWithFallback(targetUrl, proxyIndex + 1);
+        }
+      };
+
+      xhr.onerror = xhr.ontimeout = function() {
+        fetchWithFallback(targetUrl, proxyIndex + 1);
+      };
+
+      xhr.send();
     }
 
     function parseAndDisplay(htmlStr, baseUrl) {
